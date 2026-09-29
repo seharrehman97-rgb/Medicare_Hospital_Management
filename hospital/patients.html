@@ -1,0 +1,219 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>MedCare HMS — Patients</title>
+  <link rel="stylesheet" href="assets/css/style.css">
+  <link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
+</head>
+<body>
+<div class="app-shell">
+  <aside class="sidebar">
+    <div class="sidebar-brand">
+      <div class="brand-icon">✦</div>
+      <div><div class="brand-name">MedCare</div><div class="brand-sub">Hospital Management</div></div>
+    </div>
+    <nav class="sidebar-nav">
+      <a href="index.html" class="nav-item"><span class="nav-icon">◈</span> Dashboard</a>
+      <a href="patients.html" class="nav-item active"><span class="nav-icon">◎</span> Patients</a>
+      <a href="doctors.html" class="nav-item"><span class="nav-icon">◉</span> Doctors & Staff</a>
+      <a href="appointments.html" class="nav-item"><span class="nav-icon">◷</span> Appointments</a>
+      <a href="pharmacy.html" class="nav-item"><span class="nav-icon">⬡</span> Pharmacy</a>
+    </nav>
+    <div class="sidebar-footer">
+      <div class="user-pill">
+        <div class="user-avatar">A</div>
+        <div><div class="user-name">Admin</div><div class="user-role">Super Admin</div></div>
+      </div>
+    </div>
+  </aside>
+
+  <main class="main-content">
+    <header class="page-header">
+      <div>
+        <h1 class="page-title">Patients & Admissions</h1>
+        <p class="page-subtitle">Manage patient records and admissions.</p>
+      </div>
+      <button class="btn btn-primary" onclick="openModal('addPatientModal')">+ Add Patient</button>
+    </header>
+
+    <div id="alertBox"></div>
+
+    <div class="card">
+      <div class="toolbar">
+        <div class="search-box">
+          <input type="text" id="searchInput" placeholder="Search patients by name…" oninput="filterTable()">
+        </div>
+        <select class="select-filter" id="statusFilter" onchange="filterTable()">
+          <option value="">All Statuses</option>
+          <option value="Admitted">Admitted</option>
+          <option value="Discharged">Discharged</option>
+        </select>
+        <select class="select-filter" id="bloodFilter" onchange="filterTable()">
+          <option value="">All Blood Groups</option>
+          <option>A+</option><option>A-</option>
+          <option>B+</option><option>B-</option>
+          <option>AB+</option><option>AB-</option>
+          <option>O+</option><option>O-</option>
+        </select>
+      </div>
+      <div id="tableContainer"><div class="loading-row">Loading patients…</div></div>
+    </div>
+  </main>
+</div>
+
+<!-- Add Patient Modal -->
+<div class="modal-overlay" id="addPatientModal">
+  <div class="modal">
+    <h2 class="modal-title">Add New Patient</h2>
+    <form id="addPatientForm">
+      <div class="form-grid">
+        <div class="form-group">
+          <label class="form-label">First Name *</label>
+          <input type="text" name="first_name" class="form-input" required>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Last Name *</label>
+          <input type="text" name="last_name" class="form-input" required>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Date of Birth *</label>
+          <input type="date" name="date_of_birth" class="form-input" required>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Gender *</label>
+          <select name="gender" class="form-select" required>
+            <option value="">Select…</option>
+            <option>Male</option><option>Female</option><option>Other</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Blood Group</label>
+          <select name="blood_group" class="form-select">
+            <option value="">Unknown</option>
+            <option>A+</option><option>A-</option>
+            <option>B+</option><option>B-</option>
+            <option>AB+</option><option>AB-</option>
+            <option>O+</option><option>O-</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Phone</label>
+          <input type="text" name="phone" class="form-input">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Email</label>
+          <input type="email" name="email" class="form-input">
+        </div>
+        <div class="form-group">
+          <label class="form-label">City</label>
+          <input type="text" name="city" class="form-input">
+        </div>
+        <div class="form-group span-2">
+          <label class="form-label">Address</label>
+          <textarea name="address" class="form-textarea"></textarea>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Emergency Contact Name</label>
+          <input type="text" name="emergency_contact_name" class="form-input">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Emergency Contact Phone</label>
+          <input type="text" name="emergency_contact_phone" class="form-input">
+        </div>
+      </div>
+      <div class="form-actions">
+        <button type="button" class="btn btn-outline" onclick="closeModal('addPatientModal')">Cancel</button>
+        <button type="submit" class="btn btn-primary">Save Patient</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<script src="assets/js/app.js"></script>
+<script>
+let allPatients = [];
+
+function loadPatients() {
+  fetch('api/patients.php')
+    .then(r => r.json())
+    .then(data => {
+      allPatients = data;
+      renderTable(data);
+    })
+    .catch(() => {
+      document.getElementById('tableContainer').innerHTML =
+        '<div class="empty-state">Could not load patients. Please connect your database.</div>';
+    });
+}
+
+function renderTable(data) {
+  const el = document.getElementById('tableContainer');
+  if (!data.length) { el.innerHTML = '<div class="empty-state">No patients found.</div>'; return; }
+  el.innerHTML = `<table class="data-table">
+    <thead><tr>
+      <th>Patient</th><th>DOB</th><th>Gender</th>
+      <th>Blood</th><th>Phone</th><th>City</th><th>Actions</th>
+    </tr></thead>
+    <tbody>${data.map(p => `<tr>
+      <td><strong>${p.first_name} ${p.last_name}</strong></td>
+      <td class="text-muted">${p.date_of_birth}</td>
+      <td>${p.gender}</td>
+      <td><span class="badge badge-admitted">${p.blood_group || '—'}</span></td>
+      <td class="text-muted">${p.phone || '—'}</td>
+      <td class="text-muted">${p.city || '—'}</td>
+      <td><div class="action-btns">
+        <button class="action-btn" onclick="editPatient(${p.patient_id})">Edit</button>
+        <button class="action-btn del" onclick="deletePatient(${p.patient_id})">Delete</button>
+      </div></td>
+    </tr>`).join('')}
+    </tbody></table>`;
+}
+
+function filterTable() {
+  const q      = document.getElementById('searchInput').value.toLowerCase();
+  const status = document.getElementById('statusFilter').value;
+  const blood  = document.getElementById('bloodFilter').value;
+  let filtered = allPatients.filter(p => {
+    const name = `${p.first_name} ${p.last_name}`.toLowerCase();
+    return (!q || name.includes(q))
+        && (!blood || p.blood_group === blood);
+  });
+  renderTable(filtered);
+}
+
+document.getElementById('addPatientForm').addEventListener('submit', function(e) {
+  e.preventDefault();
+  const fd = new FormData(this);
+  fetch('api/patients.php', { method: 'POST', body: fd })
+    .then(r => r.json())
+    .then(d => {
+      if (d.success) {
+        closeModal('addPatientModal');
+        this.reset();
+        showAlert('Patient added successfully!', 'success');
+        loadPatients();
+      } else {
+        showAlert(d.error || 'Error saving patient.', 'error');
+      }
+    })
+    .catch(() => showAlert('Server error. Check your PHP backend.', 'error'));
+});
+
+function deletePatient(id) {
+  if (!confirm('Delete this patient? This cannot be undone.')) return;
+  fetch(`api/patients.php?id=${id}`, { method: 'DELETE' })
+    .then(r => r.json())
+    .then(d => { if (d.success) { showAlert('Patient deleted.', 'success'); loadPatients(); } })
+    .catch(() => showAlert('Delete failed.', 'error'));
+}
+
+function editPatient(id) {
+  showAlert('Edit functionality: open edit modal or navigate to patient detail page.', 'warn');
+}
+
+loadPatients();
+</script>
+</body>
+</html>

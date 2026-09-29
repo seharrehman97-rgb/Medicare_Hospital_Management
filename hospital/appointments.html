@@ -1,0 +1,229 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>MedCare HMS — Appointments</title>
+  <link rel="stylesheet" href="assets/css/style.css">
+  <link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
+</head>
+<body>
+<div class="app-shell">
+  <aside class="sidebar">
+    <div class="sidebar-brand">
+      <div class="brand-icon">✦</div>
+      <div><div class="brand-name">MedCare</div><div class="brand-sub">Hospital Management</div></div>
+    </div>
+    <nav class="sidebar-nav">
+      <a href="index.html" class="nav-item"><span class="nav-icon">◈</span> Dashboard</a>
+      <a href="patients.html" class="nav-item"><span class="nav-icon">◎</span> Patients</a>
+      <a href="doctors.html" class="nav-item"><span class="nav-icon">◉</span> Doctors & Staff</a>
+      <a href="appointments.html" class="nav-item active"><span class="nav-icon">◷</span> Appointments</a>
+      <a href="pharmacy.html" class="nav-item"><span class="nav-icon">⬡</span> Pharmacy</a>
+    </nav>
+    <div class="sidebar-footer">
+      <div class="user-pill">
+        <div class="user-avatar">A</div>
+        <div><div class="user-name">Admin</div><div class="user-role">Super Admin</div></div>
+      </div>
+    </div>
+  </aside>
+
+  <main class="main-content">
+    <header class="page-header">
+      <div>
+        <h1 class="page-title">Appointments</h1>
+        <p class="page-subtitle">Schedule and manage patient appointments.</p>
+      </div>
+      <button class="btn btn-primary" onclick="openModal('addApptModal')">+ Book Appointment</button>
+    </header>
+
+    <div id="alertBox"></div>
+
+    <div class="card">
+      <div class="toolbar">
+        <div class="search-box">
+          <input type="text" id="searchInput" placeholder="Search by patient or doctor…" oninput="filterTable()">
+        </div>
+        <select class="select-filter" id="statusFilter" onchange="filterTable()">
+          <option value="">All Statuses</option>
+          <option>Scheduled</option><option>Confirmed</option>
+          <option>Completed</option><option>Cancelled</option><option>No-Show</option>
+        </select>
+        <select class="select-filter" id="typeFilter" onchange="filterTable()">
+          <option value="">All Types</option>
+          <option>Consultation</option><option>Follow-up</option>
+          <option>Emergency</option><option>Procedure</option><option>Checkup</option>
+        </select>
+        <input type="date" class="select-filter" id="dateFilter" onchange="filterTable()" title="Filter by date">
+      </div>
+      <div id="tableContainer"><div class="loading-row">Loading appointments…</div></div>
+    </div>
+  </main>
+</div>
+
+<!-- Book Appointment Modal -->
+<div class="modal-overlay" id="addApptModal">
+  <div class="modal">
+    <h2 class="modal-title">Book Appointment</h2>
+    <form id="addApptForm">
+      <div class="form-grid">
+        <div class="form-group span-2">
+          <label class="form-label">Patient *</label>
+          <select name="patient_id" id="patientSelect" class="form-select" required>
+            <option value="">Loading patients…</option>
+          </select>
+        </div>
+        <div class="form-group span-2">
+          <label class="form-label">Doctor *</label>
+          <select name="doctor_id" id="doctorSelect" class="form-select" required>
+            <option value="">Loading doctors…</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Date & Time *</label>
+          <input type="datetime-local" name="scheduled_at" class="form-input" required>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Duration (minutes)</label>
+          <input type="number" name="duration_minutes" class="form-input" value="30" min="10" max="240">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Type</label>
+          <select name="type" class="form-select">
+            <option>Consultation</option><option>Follow-up</option>
+            <option>Emergency</option><option>Procedure</option><option>Checkup</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Status</label>
+          <select name="status" class="form-select">
+            <option>Scheduled</option><option>Confirmed</option>
+          </select>
+        </div>
+        <div class="form-group span-2">
+          <label class="form-label">Symptoms / Reason</label>
+          <textarea name="symptoms" class="form-textarea" placeholder="Describe symptoms or reason for visit…"></textarea>
+        </div>
+      </div>
+      <div class="form-actions">
+        <button type="button" class="btn btn-outline" onclick="closeModal('addApptModal')">Cancel</button>
+        <button type="submit" class="btn btn-primary">Book Appointment</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<script src="assets/js/app.js"></script>
+<script>
+let allAppts = [];
+
+function loadAppointments() {
+  fetch('api/appointments.php')
+    .then(r => r.json())
+    .then(data => { allAppts = data; renderTable(data); })
+    .catch(() => {
+      document.getElementById('tableContainer').innerHTML =
+        '<div class="empty-state">Could not load appointments. Please connect your database.</div>';
+    });
+}
+
+function renderTable(data) {
+  const el = document.getElementById('tableContainer');
+  if (!data.length) { el.innerHTML = '<div class="empty-state">No appointments found.</div>'; return; }
+  el.innerHTML = `<table class="data-table">
+    <thead><tr>
+      <th>Patient</th><th>Doctor</th><th>Scheduled</th>
+      <th>Type</th><th>Status</th><th>Actions</th>
+    </tr></thead>
+    <tbody>${data.map(a => `<tr>
+      <td><strong>${a.patient_name}</strong></td>
+      <td>Dr. ${a.doctor_name}</td>
+      <td class="text-muted">${formatDateTime(a.scheduled_at)}</td>
+      <td class="text-muted">${a.type}</td>
+      <td><span class="badge badge-${a.status.toLowerCase().replace('-','')}">${a.status}</span></td>
+      <td><div class="action-btns">
+        <button class="action-btn" onclick="changeStatus(${a.appointment_id}, '${a.status}')">Status</button>
+        <button class="action-btn del" onclick="deleteAppt(${a.appointment_id})">Cancel</button>
+      </div></td>
+    </tr>`).join('')}</tbody></table>`;
+}
+
+function formatDateTime(dt) {
+  if (!dt) return '—';
+  const d = new Date(dt);
+  return d.toLocaleDateString('en-US', {month:'short', day:'numeric', year:'numeric'})
+       + ' ' + d.toLocaleTimeString('en-US', {hour:'2-digit', minute:'2-digit'});
+}
+
+function filterTable() {
+  const q      = document.getElementById('searchInput').value.toLowerCase();
+  const status = document.getElementById('statusFilter').value;
+  const type   = document.getElementById('typeFilter').value;
+  const date   = document.getElementById('dateFilter').value;
+  renderTable(allAppts.filter(a => {
+    const name = `${a.patient_name} ${a.doctor_name}`.toLowerCase();
+    const apptDate = a.scheduled_at ? a.scheduled_at.substring(0,10) : '';
+    return (!q || name.includes(q))
+        && (!status || a.status === status)
+        && (!type   || a.type   === type)
+        && (!date   || apptDate === date);
+  }));
+}
+
+function changeStatus(id, current) {
+  const statuses = ['Scheduled','Confirmed','Completed','Cancelled','No-Show'];
+  const next = prompt(`Change status (current: ${current}):\nOptions: ${statuses.join(', ')}`);
+  if (!next || !statuses.includes(next)) return;
+  const fd = new FormData(); fd.append('status', next); fd.append('appointment_id', id);
+  fetch('api/appointments.php?action=status', { method: 'POST', body: fd })
+    .then(r => r.json())
+    .then(d => { if (d.success) { showAlert('Status updated.', 'success'); loadAppointments(); } })
+    .catch(() => showAlert('Error updating status.', 'error'));
+}
+
+function deleteAppt(id) {
+  if (!confirm('Cancel this appointment?')) return;
+  fetch(`api/appointments.php?id=${id}`, { method: 'DELETE' })
+    .then(r => r.json())
+    .then(d => { if (d.success) { showAlert('Appointment cancelled.', 'success'); loadAppointments(); } });
+}
+
+// Load patients and doctors into selects
+function loadSelects() {
+  fetch('api/patients.php')
+    .then(r => r.json())
+    .then(data => {
+      const sel = document.getElementById('patientSelect');
+      sel.innerHTML = '<option value="">Select patient…</option>' +
+        data.map(p => `<option value="${p.patient_id}">${p.first_name} ${p.last_name}</option>`).join('');
+    }).catch(() => {});
+
+  fetch('api/staff.php?role=Doctor')
+    .then(r => r.json())
+    .then(data => {
+      const sel = document.getElementById('doctorSelect');
+      sel.innerHTML = '<option value="">Select doctor…</option>' +
+        data.map(d => `<option value="${d.staff_id}">Dr. ${d.first_name} ${d.last_name} (${d.specialization || d.role})</option>`).join('');
+    }).catch(() => {});
+}
+
+document.getElementById('addApptForm').addEventListener('submit', function(e) {
+  e.preventDefault();
+  const fd = new FormData(this);
+  fetch('api/appointments.php', { method: 'POST', body: fd })
+    .then(r => r.json())
+    .then(d => {
+      if (d.success) {
+        closeModal('addApptModal'); this.reset();
+        showAlert('Appointment booked!', 'success'); loadAppointments();
+      } else { showAlert(d.error || 'Error.', 'error'); }
+    })
+    .catch(() => showAlert('Server error.', 'error'));
+});
+
+loadAppointments();
+loadSelects();
+</script>
+</body>
+</html>
