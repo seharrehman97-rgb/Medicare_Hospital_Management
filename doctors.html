@@ -1,0 +1,209 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>MedCare HMS — Doctors & Staff</title>
+  <link rel="stylesheet" href="assets/css/style.css">
+  <link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
+</head>
+<body>
+<div class="app-shell">
+  <aside class="sidebar">
+    <div class="sidebar-brand">
+      <div class="brand-icon">✦</div>
+      <div><div class="brand-name">MedCare</div><div class="brand-sub">Hospital Management</div></div>
+    </div>
+    <nav class="sidebar-nav">
+      <a href="index.html" class="nav-item"><span class="nav-icon">◈</span> Dashboard</a>
+      <a href="patients.html" class="nav-item"><span class="nav-icon">◎</span> Patients</a>
+      <a href="doctors.html" class="nav-item active"><span class="nav-icon">◉</span> Doctors & Staff</a>
+      <a href="appointments.html" class="nav-item"><span class="nav-icon">◷</span> Appointments</a>
+      <a href="pharmacy.html" class="nav-item"><span class="nav-icon">⬡</span> Pharmacy</a>
+    </nav>
+    <div class="sidebar-footer">
+      <div class="user-pill">
+        <div class="user-avatar">A</div>
+        <div><div class="user-name">Admin</div><div class="user-role">Super Admin</div></div>
+      </div>
+    </div>
+  </aside>
+
+  <main class="main-content">
+    <header class="page-header">
+      <div>
+        <h1 class="page-title">Doctors & Staff</h1>
+        <p class="page-subtitle">Manage all hospital personnel.</p>
+      </div>
+      <button class="btn btn-primary" onclick="openModal('addStaffModal')">+ Add Staff</button>
+    </header>
+
+    <div id="alertBox"></div>
+
+    <div class="card">
+      <div class="toolbar">
+        <div class="search-box">
+          <input type="text" id="searchInput" placeholder="Search by name…" oninput="filterTable()">
+        </div>
+        <select class="select-filter" id="roleFilter" onchange="filterTable()">
+          <option value="">All Roles</option>
+          <option>Doctor</option><option>Nurse</option>
+          <option>Technician</option><option>Receptionist</option>
+          <option>Pharmacist</option><option>Admin</option>
+        </select>
+        <select class="select-filter" id="statusFilter" onchange="filterTable()">
+          <option value="">All Statuses</option>
+          <option>Active</option><option>Inactive</option><option>On Leave</option>
+        </select>
+      </div>
+      <div id="tableContainer"><div class="loading-row">Loading staff…</div></div>
+    </div>
+  </main>
+</div>
+
+<!-- Add Staff Modal -->
+<div class="modal-overlay" id="addStaffModal">
+  <div class="modal">
+    <h2 class="modal-title">Add Staff Member</h2>
+    <form id="addStaffForm">
+      <div class="form-grid">
+        <div class="form-group">
+          <label class="form-label">First Name *</label>
+          <input type="text" name="first_name" class="form-input" required>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Last Name *</label>
+          <input type="text" name="last_name" class="form-input" required>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Role *</label>
+          <select name="role" class="form-select" required>
+            <option value="">Select…</option>
+            <option>Doctor</option><option>Nurse</option>
+            <option>Technician</option><option>Receptionist</option>
+            <option>Pharmacist</option><option>Admin</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Specialization</label>
+          <input type="text" name="specialization" class="form-input" placeholder="e.g. Cardiologist">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Email</label>
+          <input type="email" name="email" class="form-input">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Phone</label>
+          <input type="text" name="phone" class="form-input">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Gender</label>
+          <select name="gender" class="form-select">
+            <option value="">Select…</option>
+            <option>Male</option><option>Female</option><option>Other</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Hire Date *</label>
+          <input type="date" name="hire_date" class="form-input" required>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Salary</label>
+          <input type="number" name="salary" class="form-input" step="0.01">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Status</label>
+          <select name="status" class="form-select">
+            <option>Active</option><option>Inactive</option><option>On Leave</option>
+          </select>
+        </div>
+        <div class="form-group span-2">
+          <label class="form-label">Qualification</label>
+          <input type="text" name="qualification" class="form-input">
+        </div>
+      </div>
+      <div class="form-actions">
+        <button type="button" class="btn btn-outline" onclick="closeModal('addStaffModal')">Cancel</button>
+        <button type="submit" class="btn btn-primary">Save Staff</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<script src="assets/js/app.js"></script>
+<script>
+let allStaff = [];
+
+function loadStaff() {
+  fetch('api/staff.php')
+    .then(r => r.json())
+    .then(data => { allStaff = data; renderTable(data); })
+    .catch(() => {
+      document.getElementById('tableContainer').innerHTML =
+        '<div class="empty-state">Could not load staff. Please connect your database.</div>';
+    });
+}
+
+function renderTable(data) {
+  const el = document.getElementById('tableContainer');
+  if (!data.length) { el.innerHTML = '<div class="empty-state">No staff found.</div>'; return; }
+  el.innerHTML = `<table class="data-table">
+    <thead><tr>
+      <th>Name</th><th>Role</th><th>Specialization</th>
+      <th>Department</th><th>Phone</th><th>Status</th><th>Actions</th>
+    </tr></thead>
+    <tbody>${data.map(s => `<tr>
+      <td><strong>${s.first_name} ${s.last_name}</strong><br><span class="text-muted" style="font-size:12px">${s.email || ''}</span></td>
+      <td><span class="badge badge-${s.role === 'Doctor' ? 'admitted' : 'scheduled'}">${s.role}</span></td>
+      <td class="text-muted">${s.specialization || '—'}</td>
+      <td class="text-muted">${s.department_name || '—'}</td>
+      <td class="text-muted">${s.phone || '—'}</td>
+      <td><span class="badge badge-${s.status === 'Active' ? 'active' : 'inactive'}">${s.status}</span></td>
+      <td><div class="action-btns">
+        <button class="action-btn" onclick="editStaff(${s.staff_id})">Edit</button>
+        <button class="action-btn del" onclick="deleteStaff(${s.staff_id})">Delete</button>
+      </div></td>
+    </tr>`).join('')}</tbody></table>`;
+}
+
+function filterTable() {
+  const q      = document.getElementById('searchInput').value.toLowerCase();
+  const role   = document.getElementById('roleFilter').value;
+  const status = document.getElementById('statusFilter').value;
+  renderTable(allStaff.filter(s => {
+    const name = `${s.first_name} ${s.last_name}`.toLowerCase();
+    return (!q || name.includes(q))
+        && (!role   || s.role === role)
+        && (!status || s.status === status);
+  }));
+}
+
+document.getElementById('addStaffForm').addEventListener('submit', function(e) {
+  e.preventDefault();
+  const fd = new FormData(this);
+  fetch('api/staff.php', { method: 'POST', body: fd })
+    .then(r => r.json())
+    .then(d => {
+      if (d.success) {
+        closeModal('addStaffModal'); this.reset();
+        showAlert('Staff member added!', 'success'); loadStaff();
+      } else { showAlert(d.error || 'Error.', 'error'); }
+    })
+    .catch(() => showAlert('Server error.', 'error'));
+});
+
+function deleteStaff(id) {
+  if (!confirm('Delete this staff member?')) return;
+  fetch(`api/staff.php?id=${id}`, { method: 'DELETE' })
+    .then(r => r.json())
+    .then(d => { if (d.success) { showAlert('Deleted.', 'success'); loadStaff(); } });
+}
+
+function editStaff(id) {
+  showAlert('Edit: implement edit modal here.', 'warn');
+}
+
+loadStaff();
+</script>
+</body>
+</html>
